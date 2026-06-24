@@ -1,5 +1,10 @@
 package com.allergyradar.app.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,6 +29,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
@@ -39,28 +46,34 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.allergyradar.app.data.AllergenReading
 import com.allergyradar.app.data.DayForecast
 import com.allergyradar.app.data.GeoLocation
 import com.allergyradar.app.data.Severity
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,11 +81,68 @@ import kotlin.math.roundToInt
 fun AllergyScreen(viewModel: AllergyViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(state.error) {
         state.error?.let { message ->
             snackbarHostState.showSnackbar(message)
             viewModel.dismissError()
+        }
+    }
+
+    // --- Current-location (GPS) permission flow ---
+    val locationPermissions = remember {
+        arrayOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        )
+    }
+    fun hasLocationPermission() = locationPermissions.any {
+        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+    }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        if (grants.values.any { it }) {
+            viewModel.useCurrentLocation()
+        } else {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    "Location permission is needed to use your current position.",
+                )
+            }
+        }
+    }
+    val onUseLocation: () -> Unit = {
+        if (hasLocationPermission()) viewModel.useCurrentLocation()
+        else locationPermissionLauncher.launch(locationPermissions)
+    }
+
+    // --- Daily notification permission flow ---
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            viewModel.setAlertsEnabled(true)
+        } else {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    "Enable notifications in system settings to receive pollen alerts.",
+                )
+            }
+        }
+    }
+    val onToggleAlerts: (Boolean) -> Unit = { wantEnabled ->
+        when {
+            !wantEnabled -> viewModel.setAlertsEnabled(false)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS,
+                ) != PackageManager.PERMISSION_GRANTED ->
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            else -> viewModel.setAlertsEnabled(true)
         }
     }
 
@@ -112,6 +182,13 @@ fun AllergyScreen(viewModel: AllergyViewModel = viewModel()) {
                 isSearching = state.isSearching,
                 onQueryChange = viewModel::onQueryChange,
                 onSearch = viewModel::search,
+            )
+
+            ControlsBar(
+                isLocating = state.isLocating,
+                alertsEnabled = state.alertsEnabled,
+                onUseLocation = onUseLocation,
+                onToggleAlerts = onToggleAlerts,
             )
 
             AnimatedVisibility(visible = state.searchResults.isNotEmpty()) {
@@ -184,6 +261,59 @@ private fun SearchBar(
                 onSearch()
             }),
         )
+    }
+}
+
+@Composable
+private fun ControlsBar(
+    isLocating: Boolean,
+    alertsEnabled: Boolean,
+    onUseLocation: () -> Unit,
+    onToggleAlerts: (Boolean) -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onUseLocation, enabled = !isLocating) {
+                if (isLocating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Icon(
+                        Icons.Filled.MyLocation,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                Spacer(Modifier.width(6.dp))
+                Text(if (isLocating) "Locating…" else "Use my location")
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            Icon(
+                Icons.Filled.Notifications,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "Daily alerts",
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Spacer(Modifier.width(4.dp))
+            Switch(checked = alertsEnabled, onCheckedChange = onToggleAlerts)
+        }
     }
 }
 

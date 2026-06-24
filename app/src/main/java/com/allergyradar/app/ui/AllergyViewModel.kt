@@ -5,7 +5,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.allergyradar.app.data.ForecastResult
 import com.allergyradar.app.data.GeoLocation
+import com.allergyradar.app.data.LocationProvider
+import com.allergyradar.app.data.LocationStore
 import com.allergyradar.app.data.PollenRepository
+import com.allergyradar.app.notifications.AlertScheduler
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,25 +20,28 @@ import kotlinx.coroutines.launch
 data class AllergyUiState(
     val query: String = "",
     val isSearching: Boolean = false,
+    val isLocating: Boolean = false,
     val searchResults: List<GeoLocation> = emptyList(),
     val isLoadingForecast: Boolean = false,
     val forecast: ForecastResult? = null,
     val selectedDayIndex: Int = 0,
+    val alertsEnabled: Boolean = false,
     val error: String? = null,
 )
 
 class AllergyViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repository = PollenRepository()
-    private val prefs = app.getSharedPreferences(PREFS, Application.MODE_PRIVATE)
+    private val locationProvider = LocationProvider(app)
+    private val store = LocationStore(app)
 
-    private val _state = MutableStateFlow(AllergyUiState())
+    private val _state = MutableStateFlow(AllergyUiState(alertsEnabled = store.alertsEnabled))
     val state: StateFlow<AllergyUiState> = _state.asStateFlow()
 
     private var searchJob: Job? = null
 
     init {
-        loadSavedLocation()?.let { saved ->
+        store.loadLocation()?.let { saved ->
             _state.update { it.copy(query = saved.name) }
             loadForecast(saved)
         }
@@ -82,8 +88,32 @@ class AllergyViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Resolves the device's GPS location and loads its forecast. The caller is
+     * responsible for ensuring a location permission has been granted first.
+     */
+    fun useCurrentLocation() {
+        if (_state.value.isLocating) return
+        viewModelScope.launch {
+            _state.update { it.copy(isLocating = true, error = null, searchResults = emptyList()) }
+            runCatching { locationProvider.currentLocation() }
+                .onSuccess { location ->
+                    _state.update { it.copy(isLocating = false) }
+                    selectLocation(location)
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(
+                            isLocating = false,
+                            error = e.message ?: "Couldn't determine your location.",
+                        )
+                    }
+                }
+        }
+    }
+
     fun selectLocation(location: GeoLocation) {
-        saveLocation(location)
+        store.saveLocation(location)
         _state.update {
             it.copy(
                 query = location.name,
@@ -99,6 +129,14 @@ class AllergyViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() {
         _state.value.forecast?.location?.let { loadForecast(it) }
+    }
+
+    /** Enables/disables daily high-pollen notifications and (re)schedules work. */
+    fun setAlertsEnabled(enabled: Boolean) {
+        store.alertsEnabled = enabled
+        _state.update { it.copy(alertsEnabled = enabled) }
+        AlertScheduler.setEnabled(getApplication(), enabled)
+        if (!enabled) store.lastAlertDate = null
     }
 
     fun dismissError() {
@@ -127,36 +165,5 @@ class AllergyViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
         }
-    }
-
-    private fun saveLocation(location: GeoLocation) {
-        prefs.edit()
-            .putString(KEY_NAME, location.name)
-            .putString(KEY_ADMIN1, location.admin1)
-            .putString(KEY_COUNTRY, location.country)
-            .putFloat(KEY_LAT, location.latitude.toFloat())
-            .putFloat(KEY_LON, location.longitude.toFloat())
-            .apply()
-    }
-
-    private fun loadSavedLocation(): GeoLocation? {
-        val name = prefs.getString(KEY_NAME, null) ?: return null
-        if (!prefs.contains(KEY_LAT) || !prefs.contains(KEY_LON)) return null
-        return GeoLocation(
-            name = name,
-            admin1 = prefs.getString(KEY_ADMIN1, null),
-            country = prefs.getString(KEY_COUNTRY, null),
-            latitude = prefs.getFloat(KEY_LAT, 0f).toDouble(),
-            longitude = prefs.getFloat(KEY_LON, 0f).toDouble(),
-        )
-    }
-
-    private companion object {
-        const val PREFS = "allergy_radar_prefs"
-        const val KEY_NAME = "loc_name"
-        const val KEY_ADMIN1 = "loc_admin1"
-        const val KEY_COUNTRY = "loc_country"
-        const val KEY_LAT = "loc_lat"
-        const val KEY_LON = "loc_lon"
     }
 }

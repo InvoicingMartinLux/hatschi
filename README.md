@@ -8,6 +8,10 @@ address and it shows how strong hay fever and other common pollen allergies are
 
 - **Address search** – type a city, postcode or address and pick the matching
   place. Your location is remembered for next time.
+- **Use my location (GPS)** – one tap resolves your current position via the
+  device's built-in location services and reverse-geocodes it to a place name.
+- **Daily high-pollen alerts** – opt in to a background check that sends a
+  notification when the local pollen level is **High or worse** that day.
 - **Pollen forecast** – fetches a multi-day forecast for the six most common
   airborne allergens:
   - 🌳 Birch, 🌿 Alder, 🫒 Olive (tree pollen)
@@ -39,8 +43,18 @@ Europe-wide.
 - MVVM with `ViewModel` + `StateFlow`
 - Networking via `HttpURLConnection` and JSON parsing via `org.json` — no
   third-party HTTP/serialization libraries
-- Last location persisted in `SharedPreferences`
+- GPS via the platform `LocationManager` + `Geocoder` (no Google Play Services)
+- Background alerts via **WorkManager** (daily check, de-duplicated per day)
+- Last location and preferences persisted in `SharedPreferences`
 - `minSdk 26`, `targetSdk 34`
+
+## Permissions
+
+- `INTERNET` – fetch forecasts.
+- `ACCESS_COARSE_LOCATION` / `ACCESS_FINE_LOCATION` – only used when you tap
+  **Use my location**.
+- `POST_NOTIFICATIONS` (Android 13+) – only requested when you turn on
+  **Daily alerts**.
 
 ## Building
 
@@ -63,9 +77,15 @@ app/src/main/java/com/allergyradar/app/
 ├── MainActivity.kt              # Compose entry point
 ├── data/
 │   ├── Models.kt                # Allergen / Severity / forecast models + thresholds
-│   └── PollenRepository.kt      # Open-Meteo geocoding + air-quality calls
+│   ├── PollenRepository.kt      # Open-Meteo geocoding + air-quality calls
+│   ├── LocationProvider.kt      # GPS fix + reverse geocoding
+│   └── LocationStore.kt         # SharedPreferences (location + alert prefs)
+├── notifications/
+│   ├── PollenAlertWorker.kt     # WorkManager job: check forecast, notify if high
+│   ├── PollenNotifier.kt        # Notification channel + builder
+│   └── AlertScheduler.kt        # Schedule/cancel the daily check
 └── ui/
-    ├── AllergyViewModel.kt      # State, search, forecast loading, persistence
+    ├── AllergyViewModel.kt      # State, search, GPS, alerts, forecast loading
     ├── AllergyScreen.kt         # Compose UI
     └── theme/                   # Material 3 theme
 ```
