@@ -67,14 +67,7 @@ export async function fetchForecast(location: GeoLocation): Promise<ForecastResu
     }
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-
   const days: DayForecast[] = Object.entries(dailyPeaks).map(([isoDate, peaks]) => {
-    const date = parseDate(isoDate);
-
     const readings: AllergenReading[] = ALLERGENS.map((allergen) => {
       const peak = Math.max(0, peaks[allergen.apiField] ?? 0);
       return {
@@ -94,8 +87,6 @@ export async function fetchForecast(location: GeoLocation): Promise<ForecastResu
 
     return {
       isoDate,
-      weekdayLabel: date ? formatWeekday(date) : isoDate,
-      relativeLabel: date ? relativeLabel(date, today, tomorrow) : '',
       readings,
       overall,
       activeReadings,
@@ -111,12 +102,33 @@ function parseDate(iso: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-function relativeLabel(date: Date, today: Date, tomorrow: Date): string {
-  if (date.getTime() === today.getTime()) return 'Today';
-  if (date.getTime() === tomorrow.getTime()) return 'Tomorrow';
-  return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+/**
+ * Locale-aware short weekday for a day card, e.g. "Mon" / "Lun" / "Mo".
+ */
+export function formatWeekday(isoDate: string, bcp47: string): string {
+  const date = parseDate(isoDate);
+  if (!date) return isoDate;
+  return date.toLocaleDateString(bcp47, { weekday: 'short' });
 }
 
-function formatWeekday(date: Date): string {
-  return date.toLocaleDateString('en-GB', { weekday: 'short' });
+/**
+ * Locale-aware relative label: "Today"/"Tomorrow" (translated) or a short date.
+ */
+export function formatRelativeLabel(
+  isoDate: string,
+  bcp47: string,
+  todayLabel: string,
+  tomorrowLabel: string,
+): string {
+  const date = parseDate(isoDate);
+  if (!date) return '';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  if (date.getTime() === today.getTime()) return todayLabel;
+  if (date.getTime() === tomorrow.getTime()) return tomorrowLabel;
+  return date.toLocaleDateString(bcp47, { weekday: 'short', day: 'numeric', month: 'short' });
 }

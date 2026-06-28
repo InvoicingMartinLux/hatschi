@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchForecast, searchLocations } from '@/lib/pollenApi';
+import { fetchForecast, formatRelativeLabel, formatWeekday, searchLocations } from '@/lib/pollenApi';
 import {
   displayName,
   type AllergenReading,
@@ -9,8 +9,10 @@ import {
   type ForecastResult,
   type GeoLocation,
   type Severity,
-  SEVERITIES,
 } from '@/lib/models';
+import { useI18n } from './I18nProvider';
+import { LOCALE_BCP47, type Messages } from '@/lib/i18n';
+import LanguageSwitcher from './LanguageSwitcher';
 
 // ─── Persistence ────────────────────────────────────────────────────────────
 
@@ -66,18 +68,18 @@ function SeverityDot({ sev }: { sev: Severity }) {
   return <span className={`inline-block w-2.5 h-2.5 rounded-full ${SEV_BG[sev.level]}`} />;
 }
 
-function OverallRiskCard({ day }: { day: DayForecast }) {
+function OverallRiskCard({ day, t }: { day: DayForecast; t: Messages }) {
   const sev = day.overall;
   return (
     <div className={`rounded-2xl border p-5 ${SEV_CARD_BG[sev.level]}`}>
       <div className="flex items-center gap-2 mb-1">
         <SeverityDot sev={sev} />
         <span className={`text-xs font-semibold uppercase tracking-wide ${SEV_TEXT[sev.level]}`}>
-          Overall risk
+          {t.overallRisk}
         </span>
       </div>
-      <p className={`text-3xl font-bold ${SEV_TEXT[sev.level]}`}>{sev.label}</p>
-      <p className="mt-2 text-sm text-gray-600">{sev.advice}</p>
+      <p className={`text-3xl font-bold ${SEV_TEXT[sev.level]}`}>{t.severityLabel[sev.level]}</p>
+      <p className="mt-2 text-sm text-gray-600">{t.severityAdvice[sev.level]}</p>
       {day.activeReadings.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {day.activeReadings.slice(0, 3).map((r) => (
@@ -85,7 +87,7 @@ function OverallRiskCard({ day }: { day: DayForecast }) {
               key={r.allergen.apiField}
               className={`text-xs px-2 py-0.5 rounded-full border font-medium ${SEV_CHIP_BG[r.severity.level]}`}
             >
-              {r.allergen.emoji} {r.allergen.displayName}
+              {r.allergen.emoji} {t.allergens[r.allergen.apiField]}
             </span>
           ))}
         </div>
@@ -94,15 +96,15 @@ function OverallRiskCard({ day }: { day: DayForecast }) {
   );
 }
 
-function AllergenCard({ reading }: { reading: AllergenReading }) {
+function AllergenCard({ reading, t }: { reading: AllergenReading; t: Messages }) {
   const sev = reading.severity;
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-4 flex flex-col gap-2 shadow-sm">
       <div className="flex items-center justify-between">
         <span className="font-medium text-gray-800">
-          {reading.allergen.emoji} {reading.allergen.displayName}
+          {reading.allergen.emoji} {t.allergens[reading.allergen.apiField]}
         </span>
-        <span className={`text-xs font-semibold ${SEV_TEXT[sev.level]}`}>{sev.label}</span>
+        <span className={`text-xs font-semibold ${SEV_TEXT[sev.level]}`}>{t.severityLabel[sev.level]}</span>
       </div>
       <div className="w-full bg-gray-100 rounded-full h-2">
         <div
@@ -110,7 +112,7 @@ function AllergenCard({ reading }: { reading: AllergenReading }) {
         />
       </div>
       <p className="text-xs text-gray-400">
-        Peak: {reading.peakValue.toFixed(1)} grains/m³
+        {t.peak}: {reading.peakValue.toFixed(1)} {t.grainsUnit}
       </p>
     </div>
   );
@@ -120,12 +122,18 @@ function DayChip({
   day,
   selected,
   onClick,
+  bcp47,
+  t,
 }: {
   day: DayForecast;
   selected: boolean;
   onClick: () => void;
+  bcp47: string;
+  t: Messages;
 }) {
   const sev = day.overall;
+  const weekday = formatWeekday(day.isoDate, bcp47);
+  const relative = formatRelativeLabel(day.isoDate, bcp47, t.today, t.tomorrow);
   return (
     <button
       onClick={onClick}
@@ -134,11 +142,9 @@ function DayChip({
           ? `${SEV_CARD_BG[sev.level]} border-current ${SEV_TEXT[sev.level]} shadow`
           : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
     >
-      <span className="text-xs font-semibold uppercase tracking-wider">
-        {day.weekdayLabel}
-      </span>
+      <span className="text-xs font-semibold uppercase tracking-wider">{weekday}</span>
       <SeverityDot sev={sev} />
-      <span className="text-xs">{day.relativeLabel || day.isoDate.slice(5)}</span>
+      <span className="text-xs">{relative || day.isoDate.slice(5)}</span>
     </button>
   );
 }
@@ -146,6 +152,9 @@ function DayChip({
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function AllergyScreen() {
+  const { locale, t } = useI18n();
+  const bcp47 = LOCALE_BCP47[locale];
+
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
@@ -155,12 +164,9 @@ export default function AllergyScreen() {
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Load persisted location on mount
-  useEffect(() => {
-    const saved = loadLocation();
-    if (saved) loadForecastFor(saved);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Keep latest translations available inside async callbacks for error messages.
+  const tRef = useRef(t);
+  useEffect(() => { tRef.current = t; }, [t]);
 
   const loadForecastFor = useCallback(async (loc: GeoLocation) => {
     setSearchResults([]);
@@ -172,12 +178,19 @@ export default function AllergyScreen() {
       setForecast(result);
       setSelectedDayIndex(0);
       saveLocation(loc);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load forecast.');
+    } catch {
+      setError(tRef.current.errors.forecastFailed);
     } finally {
       setIsLoadingForecast(false);
     }
   }, []);
+
+  // Load persisted location (from localStorage, client-only) on mount.
+  useEffect(() => {
+    const saved = loadLocation();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (saved) loadForecastFor(saved);
+  }, [loadForecastFor]);
 
   const handleQueryChange = (value: string) => {
     setQuery(value);
@@ -203,7 +216,7 @@ export default function AllergyScreen() {
 
   const handleUseLocation = () => {
     if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser.');
+      setError(t.errors.geolocationUnsupported);
       return;
     }
     setIsLocating(true);
@@ -212,18 +225,16 @@ export default function AllergyScreen() {
       async (pos) => {
         try {
           const { latitude, longitude } = pos.coords;
-          // Reverse-geocode using Open-Meteo geocoding (search won't work for coords,
-          // so we build a minimal GeoLocation from coordinates)
           const loc: GeoLocation = {
             name: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
             latitude,
             longitude,
           };
-          // Try to resolve a human-readable name via nominatim
+          // Try to resolve a human-readable name via Nominatim.
           try {
             const r = await fetch(
               `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
-              { headers: { 'Accept-Language': 'en' } }
+              { headers: { 'Accept-Language': locale } }
             );
             if (r.ok) {
               const d = await r.json();
@@ -238,9 +249,9 @@ export default function AllergyScreen() {
           setIsLocating(false);
         }
       },
-      (err) => {
+      () => {
         setIsLocating(false);
-        setError(err.message ?? 'Could not determine your location.');
+        setError(t.errors.locationFailed);
       },
       { timeout: 10_000 }
     );
@@ -252,20 +263,24 @@ export default function AllergyScreen() {
     <div className="min-h-screen" style={{ backgroundColor: '#FFF8E1' }}>
       {/* Top bar */}
       <header className="sticky top-0 z-10 backdrop-blur-sm" style={{ backgroundColor: 'rgba(255,248,225,0.92)' }}>
-        <div className="max-w-xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <h1 className="text-xl font-bold text-green-800">🌿 Allergy Radar</h1>
-          {forecast && (
-            <button
-              onClick={() => loadForecastFor(forecast.location)}
-              disabled={isLoadingForecast}
-              className="p-2 rounded-full hover:bg-green-100 text-green-700 transition-colors disabled:opacity-40"
-              title="Refresh forecast"
-            >
-              <svg className={`w-5 h-5 ${isLoadingForecast ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            {forecast && (
+              <button
+                onClick={() => loadForecastFor(forecast.location)}
+                disabled={isLoadingForecast}
+                className="p-2 rounded-full hover:bg-green-100 text-green-700 transition-colors disabled:opacity-40"
+                title={t.refresh}
+                aria-label={t.refresh}
+              >
+                <svg className={`w-5 h-5 ${isLoadingForecast ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            )}
+            <LanguageSwitcher />
+          </div>
         </div>
       </header>
 
@@ -279,7 +294,7 @@ export default function AllergyScreen() {
               value={query}
               onChange={(e) => handleQueryChange(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && query.trim() && doSearch(query)}
-              placeholder="Search city or postcode…"
+              placeholder={t.searchPlaceholder}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
             />
             {isSearching && (
@@ -292,7 +307,8 @@ export default function AllergyScreen() {
             onClick={handleUseLocation}
             disabled={isLocating}
             className="px-3 py-3 rounded-xl bg-white border border-gray-200 shadow-sm text-green-700 hover:bg-green-50 transition-colors disabled:opacity-40"
-            title="Use my location"
+            title={t.useMyLocation}
+            aria-label={t.useMyLocation}
           >
             {isLocating ? (
               <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
@@ -359,6 +375,8 @@ export default function AllergyScreen() {
                   day={day}
                   selected={i === selectedDayIndex}
                   onClick={() => setSelectedDayIndex(i)}
+                  bcp47={bcp47}
+                  t={t}
                 />
               ))}
             </div>
@@ -366,16 +384,16 @@ export default function AllergyScreen() {
             {/* Selected day content */}
             {selectedDay && (
               <div className="mt-4 space-y-4">
-                <OverallRiskCard day={selectedDay} />
+                <OverallRiskCard day={selectedDay} t={t} />
 
                 {/* Allergen breakdown */}
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
-                    Allergen breakdown
+                    {t.allergenBreakdown}
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {selectedDay.readings.map((r) => (
-                      <AllergenCard key={r.allergen.apiField} reading={r} />
+                      <AllergenCard key={r.allergen.apiField} reading={r} t={t} />
                     ))}
                   </div>
                 </div>
@@ -384,7 +402,7 @@ export default function AllergyScreen() {
 
             {/* Attribution */}
             <p className="mt-8 text-center text-xs text-gray-400">
-              Pollen data from{' '}
+              {t.dataFrom}{' '}
               <a
                 href="https://open-meteo.com"
                 target="_blank"
@@ -401,7 +419,7 @@ export default function AllergyScreen() {
         {!forecast && !isLoadingForecast && !error && (
           <div className="mt-16 flex flex-col items-center text-center text-gray-400 gap-3">
             <span className="text-5xl">🌿</span>
-            <p className="text-sm">Search for a city or use your location to see the pollen forecast.</p>
+            <p className="text-sm">{t.emptyState}</p>
           </div>
         )}
       </main>
