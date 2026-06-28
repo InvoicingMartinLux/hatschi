@@ -5,7 +5,6 @@ import {
   type ForecastResult,
   type GeoLocation,
   severityFor,
-  SEVERITIES,
 } from './models';
 
 const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
@@ -77,19 +76,11 @@ export async function fetchForecast(location: GeoLocation): Promise<ForecastResu
       };
     });
 
-    const overall =
-      readings.reduce<typeof SEVERITIES.NONE | undefined>((best, r) =>
-        !best || r.severity.ordinal > best.ordinal ? r.severity : best, undefined) ?? SEVERITIES.NONE;
-
-    const activeReadings = readings
-      .filter((r) => r.severity.level !== 'NONE')
-      .sort((a, b) => b.severity.ordinal - a.severity.ordinal);
-
+    // Overall risk / active readings are derived at render time from the
+    // user's selected allergens, so we only store the raw per-allergen readings.
     return {
       isoDate,
       readings,
-      overall,
-      activeReadings,
     };
   });
 

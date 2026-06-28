@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchForecast, formatRelativeLabel, formatWeekday, searchLocations } from '@/lib/pollenApi';
 import {
+  ALL_ALLERGEN_FIELDS,
   displayName,
+  overallSeverityOf,
   type AllergenReading,
   type DayForecast,
   type ForecastResult,
@@ -13,6 +15,7 @@ import {
 import { useI18n } from './I18nProvider';
 import { LOCALE_BCP47, type Messages } from '@/lib/i18n';
 import LanguageSwitcher from './LanguageSwitcher';
+import AllergenFilter from './AllergenFilter';
 
 // ─── Persistence ────────────────────────────────────────────────────────────
 
@@ -23,6 +26,21 @@ function loadLocation(): GeoLocation | null {
   try {
     const raw = localStorage.getItem('allergyradar_location');
     return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveAllergens(fields: string[]) {
+  try { localStorage.setItem('allergyradar_allergens', JSON.stringify(fields)); } catch {}
+}
+function loadAllergens(): string[] | null {
+  try {
+    const raw = localStorage.getItem('allergyradar_allergens');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    // Keep only fields that still exist in the current allergen set.
+    const valid = parsed.filter((f) => ALL_ALLERGEN_FIELDS.includes(f));
+    return valid;
   } catch { return null; }
 }
 
@@ -68,8 +86,17 @@ function SeverityDot({ sev }: { sev: Severity }) {
   return <span className={`inline-block w-2.5 h-2.5 rounded-full ${SEV_BG[sev.level]}`} />;
 }
 
-function OverallRiskCard({ day, t }: { day: DayForecast; t: Messages }) {
-  const sev = day.overall;
+function OverallRiskCard({
+  readings,
+  t,
+}: {
+  readings: AllergenReading[];
+  t: Messages;
+}) {
+  const sev = overallSeverityOf(readings);
+  const active = readings
+    .filter((r) => r.severity.level !== 'NONE')
+    .sort((a, b) => b.severity.ordinal - a.severity.ordinal);
   return (
     <div className={`rounded-2xl border p-5 ${SEV_CARD_BG[sev.level]}`}>
       <div className="flex items-center gap-2 mb-1">
@@ -80,9 +107,9 @@ function OverallRiskCard({ day, t }: { day: DayForecast; t: Messages }) {
       </div>
       <p className={`text-3xl font-bold ${SEV_TEXT[sev.level]}`}>{t.severityLabel[sev.level]}</p>
       <p className="mt-2 text-sm text-gray-600">{t.severityAdvice[sev.level]}</p>
-      {day.activeReadings.length > 0 && (
+      {active.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {day.activeReadings.slice(0, 3).map((r) => (
+          {active.slice(0, 3).map((r) => (
             <span
               key={r.allergen.apiField}
               className={`text-xs px-2 py-0.5 rounded-full border font-medium ${SEV_CHIP_BG[r.severity.level]}`}
@@ -121,17 +148,21 @@ function AllergenCard({ reading, t }: { reading: AllergenReading; t: Messages })
 function DayChip({
   day,
   selected,
+  selectedAllergens,
   onClick,
   bcp47,
   t,
 }: {
   day: DayForecast;
   selected: boolean;
+  selectedAllergens: Set<string>;
   onClick: () => void;
   bcp47: string;
   t: Messages;
 }) {
-  const sev = day.overall;
+  const sev = overallSeverityOf(
+    day.readings.filter((r) => selectedAllergens.has(r.allergen.apiField)),
+  );
   const weekday = formatWeekday(day.isoDate, bcp47);
   const relative = formatRelativeLabel(day.isoDate, bcp47, t.today, t.tomorrow);
   return (
@@ -163,6 +194,10 @@ export default function AllergyScreen() {
   const [forecast, setForecast] = useState<ForecastResult | null>(null);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // Which allergens the user cares about (by apiField). Defaults to all.
+  const [selectedAllergens, setSelectedAllergens] = useState<Set<string>>(
+    () => new Set(ALL_ALLERGEN_FIELDS),
+  );
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Keep latest translations available inside async callbacks for error messages.
   const tRef = useRef(t);
@@ -185,12 +220,32 @@ export default function AllergyScreen() {
     }
   }, []);
 
-  // Load persisted location (from localStorage, client-only) on mount.
+  // Load persisted location + allergen selection (client-only) on mount.
   useEffect(() => {
+    const savedAllergens = loadAllergens();
+    if (savedAllergens && savedAllergens.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedAllergens(new Set(savedAllergens));
+    }
     const saved = loadLocation();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved) loadForecastFor(saved);
   }, [loadForecastFor]);
+
+  const toggleAllergen = (apiField: string) => {
+    setSelectedAllergens((prev) => {
+      const next = new Set(prev);
+      if (next.has(apiField)) next.delete(apiField);
+      else next.add(apiField);
+      saveAllergens([...next]);
+      return next;
+    });
+  };
+
+  const selectAllAllergens = () => {
+    const next = new Set(ALL_ALLERGEN_FIELDS);
+    setSelectedAllergens(next);
+    saveAllergens([...next]);
+  };
 
   const handleQueryChange = (value: string) => {
     setQuery(value);
@@ -367,6 +422,13 @@ export default function AllergyScreen() {
               </h2>
             </div>
 
+            {/* Allergen filter */}
+            <AllergenFilter
+              selected={selectedAllergens}
+              onToggle={toggleAllergen}
+              onSelectAll={selectAllAllergens}
+            />
+
             {/* Day selector */}
             <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
               {forecast.days.map((day, i) => (
@@ -374,6 +436,7 @@ export default function AllergyScreen() {
                   key={day.isoDate}
                   day={day}
                   selected={i === selectedDayIndex}
+                  selectedAllergens={selectedAllergens}
                   onClick={() => setSelectedDayIndex(i)}
                   bcp47={bcp47}
                   t={t}
@@ -384,19 +447,34 @@ export default function AllergyScreen() {
             {/* Selected day content */}
             {selectedDay && (
               <div className="mt-4 space-y-4">
-                <OverallRiskCard day={selectedDay} t={t} />
-
-                {/* Allergen breakdown */}
-                <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
-                    {t.allergenBreakdown}
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {selectedDay.readings.map((r) => (
-                      <AllergenCard key={r.allergen.apiField} reading={r} t={t} />
-                    ))}
+                {selectedAllergens.size === 0 ? (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-700">
+                    {t.noAllergensSelected}
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <OverallRiskCard
+                      readings={selectedDay.readings.filter((r) =>
+                        selectedAllergens.has(r.allergen.apiField),
+                      )}
+                      t={t}
+                    />
+
+                    {/* Allergen breakdown */}
+                    <div>
+                      <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
+                        {t.allergenBreakdown}
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {selectedDay.readings
+                          .filter((r) => selectedAllergens.has(r.allergen.apiField))
+                          .map((r) => (
+                            <AllergenCard key={r.allergen.apiField} reading={r} t={t} />
+                          ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

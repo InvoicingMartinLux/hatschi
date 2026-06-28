@@ -84,6 +84,17 @@ export function severityFor(allergen: AllergenDef, value: number): Severity {
   return SEVERITIES.VERY_HIGH;
 }
 
+/** All allergen API field names — the complete set Open-Meteo provides. */
+export const ALL_ALLERGEN_FIELDS = ALLERGENS.map((a) => a.apiField);
+
+/** The worst (highest) severity across the given readings, or NONE if empty. */
+export function overallSeverityOf(readings: AllergenReading[]): Severity {
+  return readings.reduce<Severity>(
+    (best, r) => (r.severity.ordinal > best.ordinal ? r.severity : best),
+    SEVERITIES.NONE,
+  );
+}
+
 export interface GeoLocation {
   name: string;
   admin1?: string;
@@ -107,8 +118,6 @@ export interface AllergenReading {
 export interface DayForecast {
   isoDate: string;
   readings: AllergenReading[];
-  overall: Severity;
-  activeReadings: AllergenReading[];
 }
 
 export interface ForecastResult {

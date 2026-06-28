@@ -43,6 +43,9 @@ export interface Messages {
   today: string;
   tomorrow: string;
   language: string;
+  myAllergens: string;
+  selectAll: string;
+  noAllergensSelected: string;
   errors: {
     geolocationUnsupported: string;
     locationFailed: string;
@@ -68,6 +71,9 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     today: 'Today',
     tomorrow: 'Tomorrow',
     language: 'Language',
+    myAllergens: 'My allergens',
+    selectAll: 'All',
+    noAllergensSelected: 'Select at least one allergen to see its forecast.',
     errors: {
       geolocationUnsupported: 'Geolocation is not supported by your browser.',
       locationFailed: 'Could not determine your location.',
@@ -110,6 +116,9 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     today: 'Heute',
     tomorrow: 'Morgen',
     language: 'Sprache',
+    myAllergens: 'Meine Allergene',
+    selectAll: 'Alle',
+    noAllergensSelected: 'Wählen Sie mindestens ein Allergen, um die Vorhersage zu sehen.',
     errors: {
       geolocationUnsupported: 'Standortbestimmung wird von Ihrem Browser nicht unterstützt.',
       locationFailed: 'Ihr Standort konnte nicht ermittelt werden.',
@@ -152,6 +161,9 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     today: "Aujourd'hui",
     tomorrow: 'Demain',
     language: 'Langue',
+    myAllergens: 'Mes allergènes',
+    selectAll: 'Tous',
+    noAllergensSelected: 'Sélectionnez au moins un allergène pour voir ses prévisions.',
     errors: {
       geolocationUnsupported: "La géolocalisation n'est pas prise en charge par votre navigateur.",
       locationFailed: "Impossible de déterminer votre position.",
@@ -194,6 +206,9 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     today: 'Hoy',
     tomorrow: 'Mañana',
     language: 'Idioma',
+    myAllergens: 'Mis alérgenos',
+    selectAll: 'Todos',
+    noAllergensSelected: 'Selecciona al menos un alérgeno para ver su pronóstico.',
     errors: {
       geolocationUnsupported: 'Tu navegador no admite la geolocalización.',
       locationFailed: 'No se pudo determinar tu ubicación.',
@@ -236,6 +251,9 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     today: 'Oggi',
     tomorrow: 'Domani',
     language: 'Lingua',
+    myAllergens: 'I miei allergeni',
+    selectAll: 'Tutti',
+    noAllergensSelected: 'Seleziona almeno un allergene per vedere le previsioni.',
     errors: {
       geolocationUnsupported: 'La geolocalizzazione non è supportata dal tuo browser.',
       locationFailed: 'Impossibile determinare la tua posizione.',
