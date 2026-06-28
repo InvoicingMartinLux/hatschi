@@ -106,8 +106,6 @@ export interface AllergenReading {
 
 export interface DayForecast {
   isoDate: string;
-  weekdayLabel: string;
-  relativeLabel: string;
   readings: AllergenReading[];
   overall: Severity;
   activeReadings: AllergenReading[];
