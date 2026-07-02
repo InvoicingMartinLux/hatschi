@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
@@ -11,6 +11,10 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: "Allergy Radar",
   description: "Pollen forecast for your location — know before you go",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f7f9f5",
 };
 
 export default function RootLayout({

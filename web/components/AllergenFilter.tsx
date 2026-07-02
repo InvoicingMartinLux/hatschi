@@ -16,15 +16,15 @@ export default function AllergenFilter({
   const allSelected = selected.size === ALLERGENS.length;
 
   return (
-    <div className="mt-4">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400">
+    <div className="mt-5">
+      <div className="mb-2.5 flex items-center justify-between">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">
           {t.myAllergens}
         </h3>
         <button
           onClick={onSelectAll}
           disabled={allSelected}
-          className="text-xs font-medium text-green-700 hover:text-green-800 disabled:text-gray-300 disabled:cursor-default transition-colors"
+          className="text-xs font-medium text-[var(--brand-deep)] transition-colors hover:text-[var(--brand)] disabled:cursor-default disabled:text-[var(--ink-muted)] disabled:opacity-50"
         >
           {t.selectAll}
         </button>
@@ -37,12 +37,12 @@ export default function AllergenFilter({
               key={a.apiField}
               onClick={() => onToggle(a.apiField)}
               aria-pressed={isOn}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium transition-all
+              className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-all
                 ${isOn
-                  ? 'bg-green-600 border-green-600 text-white shadow-sm'
-                  : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'}`}
+                  ? 'bg-[var(--brand-deep)] text-white shadow-[0_2px_8px_rgba(5,150,105,0.25)]'
+                  : 'bg-white/60 text-[var(--ink-muted)] ring-1 ring-[var(--hairline)] hover:bg-white hover:text-[var(--ink-secondary)]'}`}
             >
-              <span className={isOn ? '' : 'opacity-50'}>{a.emoji}</span>
+              <span aria-hidden className={isOn ? '' : 'opacity-45 grayscale'}>{a.emoji}</span>
               <span>{t.allergens[a.apiField]}</span>
             </button>
           );

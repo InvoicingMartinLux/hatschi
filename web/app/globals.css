@@ -1,8 +1,51 @@
 @import "tailwindcss";
 
 :root {
-  --background: #FFF8E1;
-  --foreground: #1a1a1a;
+  /* Page & surfaces — clean, airy, slightly warm */
+  --background: #f7f9f5;
+  --surface: #ffffff;
+  --foreground: #0b0b0b;
+
+  /* Ink scale */
+  --ink-primary: #0b0b0b;
+  --ink-secondary: #52514e;
+  --ink-muted: #898781;
+
+  /* Hairline borders */
+  --hairline: rgba(11, 11, 11, 0.08);
+
+  /* Brand accent */
+  --brand: #059669;
+  --brand-deep: #047857;
+  --brand-tint: #e7f6ef;
+
+  /* Severity status palette (fixed; always paired with a text label).
+     Each level: fill (dot/meter), track (lighter step of same ramp),
+     tint (card wash) and ink (label text on tint). */
+  --sev-none-fill: #98968f;
+  --sev-none-track: #e9e8e4;
+  --sev-none-tint: #f4f4f2;
+  --sev-none-ink: #52514e;
+
+  --sev-low-fill: #0ca30c;
+  --sev-low-track: #d6efd6;
+  --sev-low-tint: #eef8ee;
+  --sev-low-ink: #006300;
+
+  --sev-moderate-fill: #fab219;
+  --sev-moderate-track: #fbe8bb;
+  --sev-moderate-tint: #fdf5e0;
+  --sev-moderate-ink: #7a5800;
+
+  --sev-high-fill: #ec835a;
+  --sev-high-track: #fadcce;
+  --sev-high-tint: #fdf0e9;
+  --sev-high-ink: #9c3d10;
+
+  --sev-veryhigh-fill: #d03b3b;
+  --sev-veryhigh-track: #f3cdcd;
+  --sev-veryhigh-tint: #fbeded;
+  --sev-veryhigh-ink: #a02222;
 }
 
 @theme inline {
@@ -12,11 +55,40 @@
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(1100px 500px at 50% -220px, #ddf3e4 0%, rgba(221, 243, 228, 0) 70%),
+    var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
   box-sizing: border-box;
+}
+
+::selection {
+  background: #bbe7cd;
+}
+
+/* Entrance animation for content sections */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.35s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up {
+    animation: none;
+  }
 }

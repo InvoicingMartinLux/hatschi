@@ -39,6 +39,7 @@ export interface Messages {
   peak: string; // e.g. "Peak"
   grainsUnit: string; // e.g. "grains/m³"
   dataFrom: string; // "Pollen data from"
+  emptyTitle: string;
   emptyState: string;
   today: string;
   tomorrow: string;
@@ -67,6 +68,7 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     peak: 'Peak',
     grainsUnit: 'grains/m³',
     dataFrom: 'Pollen data from',
+    emptyTitle: 'Your pollen forecast',
     emptyState: 'Search for a city or use your location to see the pollen forecast.',
     today: 'Today',
     tomorrow: 'Tomorrow',
@@ -112,6 +114,7 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     peak: 'Spitzenwert',
     grainsUnit: 'Körner/m³',
     dataFrom: 'Pollendaten von',
+    emptyTitle: 'Ihre Pollenvorhersage',
     emptyState: 'Suchen Sie eine Stadt oder verwenden Sie Ihren Standort, um die Pollenvorhersage zu sehen.',
     today: 'Heute',
     tomorrow: 'Morgen',
@@ -157,6 +160,7 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     peak: 'Pic',
     grainsUnit: 'grains/m³',
     dataFrom: 'Données polliniques de',
+    emptyTitle: 'Vos prévisions polliniques',
     emptyState: 'Recherchez une ville ou utilisez votre position pour voir les prévisions polliniques.',
     today: "Aujourd'hui",
     tomorrow: 'Demain',
@@ -202,6 +206,7 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     peak: 'Pico',
     grainsUnit: 'granos/m³',
     dataFrom: 'Datos de polen de',
+    emptyTitle: 'Tu pronóstico de polen',
     emptyState: 'Busca una ciudad o usa tu ubicación para ver el pronóstico de polen.',
     today: 'Hoy',
     tomorrow: 'Mañana',
@@ -247,6 +252,7 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     peak: 'Picco',
     grainsUnit: 'granelli/m³',
     dataFrom: 'Dati sui pollini da',
+    emptyTitle: 'Le tue previsioni dei pollini',
     emptyState: 'Cerca una città o usa la tua posizione per vedere le previsioni dei pollini.',
     today: 'Oggi',
     tomorrow: 'Domani',
