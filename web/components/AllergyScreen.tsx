@@ -16,6 +16,7 @@ import { useI18n } from './I18nProvider';
 import { LOCALE_BCP47, type Messages } from '@/lib/i18n';
 import LanguageSwitcher from './LanguageSwitcher';
 import AllergenFilter from './AllergenFilter';
+import AllergenTrends from './AllergenTrends';
 
 // ─── Persistence ────────────────────────────────────────────────────────────
 
@@ -556,6 +557,16 @@ export default function AllergyScreen() {
                           ))}
                       </div>
                     </div>
+
+                    {/* Multi-day trend charts */}
+                    <AllergenTrends
+                      days={forecast.days}
+                      selectedAllergens={selectedAllergens}
+                      selectedDayIndex={selectedDayIndex}
+                      onSelectDay={setSelectedDayIndex}
+                      bcp47={bcp47}
+                      t={t}
+                    />
                   </>
                 )}
               </div>

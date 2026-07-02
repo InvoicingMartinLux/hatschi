@@ -36,6 +36,7 @@ export interface Messages {
   location: string;
   overallRisk: string;
   allergenBreakdown: string;
+  trendTitle: string;
   peak: string; // e.g. "Peak"
   grainsUnit: string; // e.g. "grains/m³"
   dataFrom: string; // "Pollen data from"
@@ -65,6 +66,7 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     location: 'Location',
     overallRisk: 'Overall risk',
     allergenBreakdown: 'Allergen breakdown',
+    trendTitle: 'Pollen trend',
     peak: 'Peak',
     grainsUnit: 'grains/m³',
     dataFrom: 'Pollen data from',
@@ -111,6 +113,7 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     location: 'Standort',
     overallRisk: 'Gesamtrisiko',
     allergenBreakdown: 'Allergen-Übersicht',
+    trendTitle: 'Pollen-Verlauf',
     peak: 'Spitzenwert',
     grainsUnit: 'Körner/m³',
     dataFrom: 'Pollendaten von',
@@ -157,6 +160,7 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     location: 'Emplacement',
     overallRisk: 'Risque global',
     allergenBreakdown: 'Détail des allergènes',
+    trendTitle: 'Évolution du pollen',
     peak: 'Pic',
     grainsUnit: 'grains/m³',
     dataFrom: 'Données polliniques de',
@@ -203,6 +207,7 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     location: 'Ubicación',
     overallRisk: 'Riesgo general',
     allergenBreakdown: 'Desglose de alérgenos',
+    trendTitle: 'Evolución del polen',
     peak: 'Pico',
     grainsUnit: 'granos/m³',
     dataFrom: 'Datos de polen de',
@@ -249,6 +254,7 @@ export const TRANSLATIONS: Record<Locale, Messages> = {
     location: 'Posizione',
     overallRisk: 'Rischio complessivo',
     allergenBreakdown: 'Dettaglio allergeni',
+    trendTitle: 'Andamento dei pollini',
     peak: 'Picco',
     grainsUnit: 'granelli/m³',
     dataFrom: 'Dati sui pollini da',
