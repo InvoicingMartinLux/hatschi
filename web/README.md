@@ -20,6 +20,18 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## RunOps stats endpoint
+
+`GET /api/public/runops-stats` returns `{ users_total, traffic: { daily, weekly, monthly } }` and requires the `x-runops-key` header. Traffic numbers are pageviews for the trailing 1/7/30 days from [Vercel Web Analytics](https://vercel.com/docs/analytics/web-analytics-api); `users_total` is unique visitors over the trailing 30 days (the app has no user accounts).
+
+It needs these environment variables on Vercel:
+
+- `VERCEL_API_TOKEN` — a Vercel access token (create one under Account Settings → Tokens) with access to this project's analytics.
+- `VERCEL_PROJECT_ID` — the project's ID (`prj_…`, found under Project Settings → General).
+- `VERCEL_TEAM_ID` — only if the project belongs to a team.
+
+Until they are set, the endpoint responds with `503` and an explanatory error.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
